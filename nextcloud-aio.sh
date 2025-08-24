@@ -146,6 +146,14 @@ print_menu() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 check_root() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # На macOS не требуем root для разработки/тестирования
+        if [ "$EUID" -eq 0 ]; then
+            echo -e "${YELLOW}${WARNING} Запуск от root на macOS не рекомендуется${NC}"
+        fi
+        return 0
+    fi
+    
     if [ "$EUID" -ne 0 ]; then
         echo -e "${RED}${CROSS} Требуются права root. Перезапуск с sudo...${NC}"
         exec sudo "$0"
@@ -154,7 +162,13 @@ check_root() {
 
 detect_os() {
     # Определяем операционную систему
-    if [ -f /etc/os-release ]; then
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        OS_ID="macos"
+        OS_VERSION=$(sw_vers -productVersion)
+        OS_NAME="macOS $OS_VERSION"
+        PACKAGE_MANAGER="brew"
+    elif [ -f /etc/os-release ]; then
         . /etc/os-release
         OS_ID="$ID"
         OS_VERSION="$VERSION_ID"
@@ -194,28 +208,45 @@ install_docker_universal() {
     
     echo -e "${BLUE}${GEAR} Установка Docker универсальным способом...${NC}"
     
-    # Используем официальный скрипт Docker - работает на всех дистрибутивах
-    if curl -fsSL https://get.docker.com | sh; then
-        echo -e "${GREEN}${CHECKMARK} Docker успешно установлен${NC}"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - Docker Desktop
+        echo -e "${BLUE}${INFO} На macOS требуется Docker Desktop${NC}"
+        echo -e "${YELLOW}${WARNING} Установите Docker Desktop вручную:${NC}"
+        echo -e "${CYAN}1. Скачайте с https://www.docker.com/products/docker-desktop${NC}"
+        echo -e "${CYAN}2. Установите и запустите Docker Desktop${NC}"
+        echo -e "${CYAN}3. Перезапустите этот скрипт${NC}"
         
-        # Запускаем и включаем Docker
-        if systemctl start docker && systemctl enable docker; then
-            echo -e "${GREEN}${CHECKMARK} Docker запущен и настроен${NC}"
-        else
-            echo -e "${YELLOW}${WARNING} Не удалось настроить автозапуск Docker${NC}"
+        # Проверяем наличие Homebrew для альтернативной установки
+        if command -v brew &> /dev/null; then
+            echo -e "${BLUE}${INFO} Альтернативно, можете установить через Homebrew:${NC}"
+            echo -e "${CYAN}brew install --cask docker${NC}"
         fi
         
-        # Проверяем работу Docker
-        if docker --version &>/dev/null; then
-            echo -e "${GREEN}${CHECKMARK} Docker работает корректно${NC}"
-            return 0
+        exit 1
+    else
+        # Linux - используем официальный скрипт Docker
+        if curl -fsSL https://get.docker.com | sh; then
+            echo -e "${GREEN}${CHECKMARK} Docker успешно установлен${NC}"
+            
+            # Запускаем и включаем Docker
+            if systemctl start docker && systemctl enable docker; then
+                echo -e "${GREEN}${CHECKMARK} Docker запущен и настроен${NC}"
+            else
+                echo -e "${YELLOW}${WARNING} Не удалось настроить автозапуск Docker${NC}"
+            fi
+            
+            # Проверяем работу Docker
+            if docker --version &>/dev/null; then
+                echo -e "${GREEN}${CHECKMARK} Docker работает корректно${NC}"
+                return 0
+            else
+                echo -e "${RED}${CROSS} Docker установлен, но не работает${NC}"
+                return 1
+            fi
         else
-            echo -e "${RED}${CROSS} Docker установлен, но не работает${NC}"
+            echo -e "${RED}${CROSS} Ошибка установки Docker${NC}"
             return 1
         fi
-    else
-        echo -e "${RED}${CROSS} Ошибка установки Docker${NC}"
-        return 1
     fi
 }
 
@@ -291,6 +322,38 @@ update_system() {
                 echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
                 exit 1
             fi
+            ;;
+            
+        brew)
+            # macOS - Homebrew
+            if ! command -v brew &> /dev/null; then
+                echo -e "${YELLOW}${WARNING} Homebrew не найден, устанавливаем...${NC}"
+                /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+                
+                # Добавляем Homebrew в PATH для Apple Silicon
+                if [[ $(uname -m) == "arm64" ]]; then
+                    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc
+                    eval "$(/opt/homebrew/bin/brew shellenv)"
+                else
+                    echo 'eval "$(/usr/local/bin/brew shellenv)"' >> ~/.zshrc
+                    eval "$(/usr/local/bin/brew shellenv)"
+                fi
+            fi
+            
+            echo -e "${BLUE}${GEAR} Обновление Homebrew...${NC}"
+            if ! brew update &>/dev/null; then
+                echo -e "${YELLOW}${WARNING} Не удалось обновить Homebrew${NC}"
+            fi
+            
+            local base_packages="curl wget gnupg screen"
+            echo -e "${BLUE}${GEAR} Установка базовых пакетов: $base_packages${NC}"
+            for package in $base_packages; do
+                if ! brew list "$package" &>/dev/null; then
+                    if ! brew install "$package" &>/dev/null; then
+                        echo -e "${YELLOW}${WARNING} Не удалось установить $package${NC}"
+                    fi
+                fi
+            done
             ;;
     esac
     
