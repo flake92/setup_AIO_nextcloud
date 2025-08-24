@@ -51,9 +51,12 @@ print_banner() {
 }
 
 print_status_box() {
-    local container_status=$(get_container_status)
-    local install_status=$(get_install_status)
-    local progress=$(get_install_progress)
+    local container_status
+    local install_status
+    local progress
+    container_status=$(get_container_status)
+    install_status=$(get_install_status)
+    progress=$(get_install_progress)
     
     echo -e "${CYAN}"
     echo "┌─────────────────────────── ${WHITE}СТАТУС СИСТЕМЫ${CYAN} ───────────────────────────┐"
@@ -101,8 +104,10 @@ print_menu() {
     echo -e "${WHITE}"
     echo "┌─────────────────────────── ${CYAN}ГЛАВНОЕ МЕНЮ${WHITE} ────────────────────────────┐"
     
-    local install_status=$(get_install_status)
-    local container_status=$(get_container_status)
+    local install_status
+    local container_status
+    install_status=$(get_install_status)
+    container_status=$(get_container_status)
     
     # Динамическое меню в зависимости от статуса
     if [ "$install_status" = "not_started" ] || [ "$install_status" = "failed" ]; then
@@ -143,7 +148,7 @@ print_menu() {
 check_root() {
     if [ "$EUID" -ne 0 ]; then
         echo -e "${RED}${CROSS} Требуются права root. Перезапуск с sudo...${NC}"
-        exec sudo "$0" "$@"
+        exec sudo "$0"
     fi
 }
 
@@ -236,7 +241,7 @@ update_system() {
             
             if [ -n "$missing_packages" ]; then
                 echo -e "${BLUE}${GEAR} Установка базовых пакетов:$missing_packages${NC}"
-                if ! apt-get install -y $missing_packages &>/dev/null; then
+                if ! apt-get install -y "$missing_packages" &>/dev/null; then
                     echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
                     exit 1
                 fi
@@ -252,7 +257,7 @@ update_system() {
             
             local base_packages="curl wget gnupg2 ca-certificates"
             echo -e "${BLUE}${GEAR} Установка базовых пакетов: $base_packages${NC}"
-            if ! $PACKAGE_MANAGER install -y $base_packages &>/dev/null; then
+            if ! $PACKAGE_MANAGER install -y "$base_packages" &>/dev/null; then
                 echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
                 exit 1
             fi
@@ -267,7 +272,7 @@ update_system() {
             
             local base_packages="curl wget gnupg ca-certificates"
             echo -e "${BLUE}${GEAR} Установка базовых пакетов: $base_packages${NC}"
-            if ! pacman -S --noconfirm $base_packages &>/dev/null; then
+            if ! pacman -S --noconfirm "$base_packages" &>/dev/null; then
                 echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
                 exit 1
             fi
@@ -282,7 +287,7 @@ update_system() {
             
             local base_packages="curl wget gpg2 ca-certificates"
             echo -e "${BLUE}${GEAR} Установка базовых пакетов: $base_packages${NC}"
-            if ! zypper install -y $base_packages &>/dev/null; then
+            if ! zypper install -y "$base_packages" &>/dev/null; then
                 echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
                 exit 1
             fi
@@ -316,7 +321,7 @@ install_dependencies() {
     # Устанавливаем отсутствующие пакеты
     if [ -n "$missing_packages" ]; then
         echo -e "${BLUE}${GEAR} Установка недостающих пакетов:$missing_packages${NC}"
-        if ! apt-get install -y $missing_packages &>/dev/null; then
+        if ! apt-get install -y "$missing_packages" &>/dev/null; then
             echo -e "${RED}${CROSS} Ошибка установки зависимостей${NC}"
             exit 1
         fi
@@ -340,7 +345,8 @@ get_install_status() {
     if screen -list | grep -q "$SCREEN_SESSION"; then
         echo "running"
     elif [ -f "$PID_FILE" ]; then
-        local pid=$(cat "$PID_FILE")
+        local pid
+        pid=$(cat "$PID_FILE")
         if kill -0 "$pid" 2>/dev/null; then
             echo "running"
         else
@@ -386,7 +392,8 @@ get_install_progress() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 start_installation() {
-    local install_status=$(get_install_status)
+    local install_status
+    install_status=$(get_install_status)
     
     if [ "$install_status" = "running" ]; then
         echo -e "${YELLOW}${WARNING} Установка уже выполняется${NC}"
@@ -666,7 +673,8 @@ start_installation() {
 }
 
 connect_to_installation() {
-    local install_status=$(get_install_status)
+    local install_status
+    install_status=$(get_install_status)
     
     case $install_status in
         "running")
@@ -713,7 +721,8 @@ show_install_logs() {
     
     echo -e "${CYAN}└──────────────────────────────────────────────────────────────────────┘${NC}\n"
     
-    local install_status=$(get_install_status)
+    local install_status
+    install_status=$(get_install_status)
     if [ "$install_status" = "running" ]; then
         echo -n "Показать логи в реальном времени? (y/N): "
         read -r confirm
@@ -771,7 +780,8 @@ show_access_info() {
 }
 
 show_container_management() {
-    local status=$(get_container_status)
+    local status
+    status=$(get_container_status)
     
     print_banner
     echo -e "${BLUE}"
@@ -858,12 +868,15 @@ show_diagnostics() {
     fi
     
     # Память
-    local mem_total=$(free -h | awk '/^Mem:/{print $2}')
-    local mem_used=$(free -h | awk '/^Mem:/{print $3}')
+    local mem_total
+    local mem_used
+    mem_total=$(free -h | awk '/^Mem:/{print $2}')
+    mem_used=$(free -h | awk '/^Mem:/{print $3}')
     echo -e "│  ${INFO}${BLUE} Память: ${mem_used}/${mem_total}${NC}                                        ${YELLOW}│"
     
     # Диск
-    local disk_info=$(df -h / | awk 'NR==2{print $3"/"$2" ("$5" используется)"}')
+    local disk_info
+    disk_info=$(df -h / | awk 'NR==2{print $3"/"$2" ("$5" используется)"}')
     echo -e "│  ${INFO}${BLUE} Диск: ${disk_info}${NC}                                ${YELLOW}│"
     
     echo -e "└──────────────────────────────────────────────────────────────────────┘${NC}\n"
@@ -885,8 +898,10 @@ main_loop() {
         
         read -r choice
         
-        local install_status=$(get_install_status)
-        local container_status=$(get_container_status)
+        local install_status
+        local container_status
+        install_status=$(get_install_status)
+        container_status=$(get_container_status)
         
         case $choice in
             1)
