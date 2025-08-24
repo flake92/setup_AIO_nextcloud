@@ -17,10 +17,10 @@ GRAY='\033[0;37m'
 NC='\033[0m'
 
 # 🔧 Конфигурация
-INSTALL_LOG="/var/log/nextcloud-aio.log"
-SCREEN_SESSION="nextcloud-aio"
-CONTAINER_NAME="nextcloud-aio-mastercontainer"
-PID_FILE="/var/run/nextcloud-aio.pid"
+INSTALL_LOG="/var/log/nextcloud-aio-install.log"
+SCREEN_SESSION="nextcloud-aio-install"
+CONTAINER_NAME="nextcloud-aio"
+PID_FILE="/var/run/nextcloud-aio-install.pid"
 VPS_IP=""
 
 # 🎨 Красивые символы
@@ -301,7 +301,7 @@ start_installation() {
     read -r confirm
     
     if [[ ! $confirm =~ ^[Nn]$ ]]; then
-        > "$INSTALL_LOG"
+        true > "$INSTALL_LOG"
         echo -e "${BLUE}${GEAR} Запуск защищенной установки...${NC}"
         
         # Создаем полностью автоматизированную screen-сессию
@@ -435,19 +435,19 @@ start_installation() {
                 exit 1
             fi
             
-            # Запускаем контейнер
+            # Запускаем контейнер для прямого доступа по IP (без SSL/reverse proxy)
             if ! docker run \\
                 --init \\
                 --sig-proxy=false \\
                 --name '$CONTAINER_NAME' \\
                 --restart always \\
-                --publish 80:80 \\
                 --publish 8080:8080 \\
                 --publish 8443:8443 \\
                 --publish 3478:3478/tcp \\
                 --publish 3478:3478/udp \\
                 --volume nextcloud_aio_mastercontainer:/mnt/docker-aio-config \\
                 --volume /var/run/docker.sock:/var/run/docker.sock:ro \\
+                --env SKIP_DOMAIN_VALIDATION=true \\
                 nextcloud/all-in-one:latest &>/dev/null & then
                 log_error 'Ошибка запуска контейнера Nextcloud AIO'
                 exit 1
