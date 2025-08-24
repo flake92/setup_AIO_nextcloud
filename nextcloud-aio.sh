@@ -850,7 +850,7 @@ main_loop() {
     while true; do
         print_banner
         detect_ip
-        print_status_box
+        print_status
         print_menu
         
         read -r choice
