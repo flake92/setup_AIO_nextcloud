@@ -160,7 +160,7 @@ jobs:
         
         # Проверяем что функции установки существуют
         declare -f update_system >/dev/null || (echo "update_system function missing" && exit 1)
-        declare -f install_docker >/dev/null || (echo "install_docker function missing" && exit 1)
+        declare -f install_docker_universal >/dev/null || (echo "install_docker_universal function missing" && exit 1)
         declare -f start_installation >/dev/null || (echo "start_installation function missing" && exit 1)
         
         echo "End-to-end simulation completed successfully"
