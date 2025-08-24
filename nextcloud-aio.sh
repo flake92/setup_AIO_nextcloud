@@ -863,48 +863,64 @@ main_loop() {
         case $choice in
             1)
                 if [ "$install_status" = "not_started" ] || [ "$install_status" = "failed" ]; then
-                    start_installation
+                    # Запуск установки
+                    echo -e "${BLUE}${GEAR} Запуск Nextcloud AIO...${NC}"
+                    docker stop "$CONTAINER_NAME" 2>/dev/null || true
+                    docker rm "$CONTAINER_NAME" 2>/dev/null || true
+                    docker run -d \
+                        --name "$CONTAINER_NAME" \
+                        --restart always \
+                        -p 8080:8080 \
+                        -p 8443:8443 \
+                        -e APACHE_PORT=11000 \
+                        -e APACHE_IP_BINDING=0.0.0.0 \
+                        -v nextcloud_aio_mastercontainer:/mnt/docker-aio-config \
+                        -v /var/run/docker.sock:/var/run/docker.sock:ro \
+                        nextcloud/all-in-one:latest
+                    echo -e "${GREEN}${CHECKMARK} Контейнер запущен${NC}"
+                    sleep 2
                 elif [ "$install_status" = "running" ]; then
-                    connect_to_installation
-                elif [ "$install_status" = "completed" ] && [ "$container_status" = "running" ]; then
-                    show_container_management
+                    echo -e "${INFO} Контейнер уже запущен${NC}"
+                    sleep 2
                 elif [ "$install_status" = "completed" ] && [ "$container_status" != "running" ]; then
-                    # Запуск остановленного контейнера
-                    echo -e "${BLUE}${GEAR} Запуск контейнера Nextcloud AIO...${NC}"
-                    if docker start "$CONTAINER_NAME" &>/dev/null; then
-                        echo -e "${GREEN}${CHECKMARK} Контейнер успешно запущен${NC}"
-                        sleep 2
-                    else
-                        echo -e "${RED}${CROSS} Ошибка запуска контейнера${NC}"
-                        sleep 2
-                    fi
+                    echo -e "${BLUE}${GEAR} Запуск контейнера...${NC}"
+                    docker start "$CONTAINER_NAME"
+                    echo -e "${GREEN}${CHECKMARK} Контейнер запущен${NC}"
+                    sleep 2
                 fi
                 ;;
             2)
-                if [ "$install_status" = "running" ]; then
-                    show_install_logs
-                elif [ "$install_status" = "not_started" ] || [ "$install_status" = "failed" ]; then
-                    show_diagnostics
+                if [ "$install_status" = "not_started" ] || [ "$install_status" = "failed" ]; then
+                    echo -e "${INFO} Диагностика системы${NC}"
+                    echo -e "${INFO} Docker статус: $(systemctl is-active docker)${NC}"
+                    echo -e "${INFO} Порты: $(ss -tlnp | grep :8080 | wc -l) открытых${NC}"
                 else
-                    show_access_info
-                    echo -n "Нажмите Enter для продолжения..."
-                    read -r
+                    echo -e "${INFO} Доступ к Nextcloud AIO:${NC}"
+                    echo -e "${BLUE}https://$VPS_IP:8080${NC}"
+                    echo -e "${BLUE}http://$VPS_IP:8080${NC}"
                 fi
+                echo -n "Нажмите Enter..."
+                read -r
                 ;;
             3)
-                if [ "$install_status" = "running" ]; then
-                    restart_installation
-                else
-                    show_diagnostics
-                fi
+                echo -e "${INFO} Диагностика системы${NC}"
+                echo -e "${INFO} Docker: $(systemctl is-active docker)${NC}"
+                echo -e "${INFO} Контейнер: $(docker ps | grep nextcloud-aio | wc -l) запущен${NC}"
+                echo -e "${INFO} Порты: $(ss -tlnp | grep :8080 | wc -l) открытых${NC}"
+                echo -n "Нажмите Enter..."
+                read -r
                 ;;
             4)
                 if [ "$install_status" = "completed" ]; then
-                    restart_installation
+                    echo -e "${YELLOW}${WARNING} Переустановка Nextcloud AIO${NC}"
+                    docker stop "$CONTAINER_NAME" 2>/dev/null || true
+                    docker rm "$CONTAINER_NAME" 2>/dev/null || true
+                    echo -e "${GREEN}${CHECKMARK} Контейнер удален${NC}"
+                    sleep 2
                 fi
                 ;;
             0)
-                echo -e "${BLUE}${INFO} Выход из программы${NC}"
+                echo -e "${BLUE}${INFO} Выход${NC}"
                 exit 0
                 ;;
             *)
