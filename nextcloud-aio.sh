@@ -332,11 +332,11 @@ update_system() {
                 
                 # Добавляем Homebrew в PATH для Apple Silicon
                 if [[ $(uname -m) == "arm64" ]]; then
-                    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc
-                    eval "$(/opt/homebrew/bin/brew shellenv)"
+                    echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
+                    export PATH="/opt/homebrew/bin:$PATH"
                 else
-                    echo 'eval "$(/usr/local/bin/brew shellenv)"' >> ~/.zshrc
-                    eval "$(/usr/local/bin/brew shellenv)"
+                    echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.zshrc
+                    export PATH="/usr/local/bin:$PATH"
                 fi
             fi
             
