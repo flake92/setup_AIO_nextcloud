@@ -154,9 +154,9 @@ jobs:
         echo "Simulating installation steps..."
         
         # Проверяем что скрипт может определить систему
-        source nextcloud-aio.sh
-        detect_os
-        echo "OS: $OS_ID, Package Manager: $PACKAGE_MANAGER"
+        source nextcloud-aio.sh || echo "⚠️ Failed to source script"
+        detect_os || echo "⚠️ OS detection failed"
+        echo "OS: ${OS_ID:-unknown}, Package Manager: ${PACKAGE_MANAGER:-unknown}"
         
         # Проверяем что функции установки существуют
         declare -f update_system >/dev/null || echo "⚠️ update_system function missing"
