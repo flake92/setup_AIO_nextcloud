@@ -1027,7 +1027,6 @@ main_loop() {
 
 main() {
     check_root
-    check_debian
     update_system
     install_dependencies
     mkdir -p "$(dirname "$INSTALL_LOG")" 2>/dev/null || true

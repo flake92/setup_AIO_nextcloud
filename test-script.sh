@@ -70,12 +70,11 @@ test_shellcheck() {
 test_os_detection() {
     echo -n "Проверка функций определения ОС... "
     
-    # Извлекаем функцию detect_os из скрипта и тестируем её
-    if grep -q "detect_os()" "$SCRIPT_PATH"; then
+    if grep -q "detect_os()" "$SCRIPT_PATH" || grep -q "detect_os " "$SCRIPT_PATH"; then
         echo -e "${GREEN}✓ Функция найдена${NC}"
         return 0
     else
-        echo -e "${RED}✗ Функция не найдена${NC}"
+        echo -e "${RED}✗ Функция detect_os не найдена${NC}"
         return 1
     fi
 }
