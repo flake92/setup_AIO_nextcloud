@@ -20,6 +20,7 @@ NC='\033[0m'
 INSTALL_LOG="/var/log/nextcloud-aio-install.log"
 SCREEN_SESSION="nextcloud-aio-install"
 CONTAINER_NAME="nextcloud-aio"
+PID_FILE="/var/run/nextcloud-aio-install.pid"
 VPS_IP=""
 
 # 🎨 Символы для статуса

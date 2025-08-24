@@ -127,7 +127,7 @@ test_environment_variables() {
 test_menu_functions() {
     echo -n "Проверка функций меню... "
     
-    local functions=("print_banner" "print_menu" "print_status_box")
+    local functions=("print_banner" "print_menu" "print_status")
     local found=0
     
     for func in "${functions[@]}"; do
