@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# 🌟 Nextcloud AIO - Красивое интерактивное меню
+# 🌟 Nextcloud AIO - Универсальный установщик
 # Полностью автоматизированная установка с защитой от отключения SSH
+# Поддерживает любые Linux дистрибутивы через Docker
 
 set -euo pipefail
 
@@ -146,39 +147,147 @@ check_root() {
     fi
 }
 
-check_debian() {
-    if [ ! -f /etc/debian_version ]; then
-        echo -e "${RED}${CROSS} Этот скрипт предназначен только для Debian/Ubuntu${NC}"
+detect_os() {
+    # Определяем операционную систему
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS_ID="$ID"
+        OS_VERSION="$VERSION_ID"
+        OS_CODENAME="$VERSION_CODENAME"
+        OS_NAME="$PRETTY_NAME"
+    elif [ -f /etc/debian_version ]; then
+        OS_ID="debian"
+        OS_VERSION=$(cat /etc/debian_version | cut -d. -f1)
+        OS_NAME="Debian $OS_VERSION"
+    elif [ -f /etc/redhat-release ]; then
+        OS_ID="rhel"
+        OS_NAME=$(cat /etc/redhat-release)
+    elif [ -f /etc/arch-release ]; then
+        OS_ID="arch"
+        OS_NAME="Arch Linux"
+    else
+        echo -e "${RED}${CROSS} Неподдерживаемая операционная система${NC}"
         exit 1
     fi
     
-    local debian_version=$(cat /etc/debian_version | cut -d. -f1)
-    if [ "$debian_version" -lt 11 ]; then
-        echo -e "${YELLOW}${WARNING} Обнаружена старая версия Debian ($debian_version). Рекомендуется Debian 11+${NC}"
+    echo -e "${BLUE}${INFO} Обнаружена система: $OS_NAME${NC}"
+    
+    # Проверяем наличие Docker
+    if command -v docker &> /dev/null; then
+        echo -e "${GREEN}${CHECKMARK} Docker уже установлен${NC}"
+        DOCKER_INSTALLED=true
+    else
+        echo -e "${YELLOW}${WARNING} Docker не найден, будет установлен${NC}"
+        DOCKER_INSTALLED=false
+    fi
+}
+
+install_docker_universal() {
+    if [ "$DOCKER_INSTALLED" = true ]; then
+        return 0
+    fi
+    
+    echo -e "${BLUE}${GEAR} Установка Docker универсальным способом...${NC}"
+    
+    # Используем официальный скрипт Docker - работает на всех дистрибутивах
+    if curl -fsSL https://get.docker.com | sh; then
+        echo -e "${GREEN}${CHECKMARK} Docker успешно установлен${NC}"
+        
+        # Запускаем и включаем Docker
+        if systemctl start docker && systemctl enable docker; then
+            echo -e "${GREEN}${CHECKMARK} Docker запущен и настроен${NC}"
+        else
+            echo -e "${YELLOW}${WARNING} Не удалось настроить автозапуск Docker${NC}"
+        fi
+        
+        # Проверяем работу Docker
+        if docker --version &>/dev/null; then
+            echo -e "${GREEN}${CHECKMARK} Docker работает корректно${NC}"
+            return 0
+        else
+            echo -e "${RED}${CROSS} Docker установлен, но не работает${NC}"
+            return 1
+        fi
+    else
+        echo -e "${RED}${CROSS} Ошибка установки Docker${NC}"
+        return 1
     fi
 }
 
 update_system() {
     echo -e "${BLUE}${GEAR} Обновление системы...${NC}"
     
-    # Обновляем список пакетов
-    if ! apt-get update -qq; then
-        echo -e "${RED}${CROSS} Ошибка обновления списка пакетов${NC}"
-        exit 1
-    fi
-    
-    # Устанавливаем базовые пакеты если их нет
-    local packages="curl wget gnupg lsb-release ca-certificates apt-transport-https software-properties-common"
-    
-    for package in $packages; do
-        if ! dpkg -l | grep -q "^ii  $package "; then
-            echo -e "${BLUE}${GEAR} Установка $package...${NC}"
-            if ! apt-get install -y "$package" &>/dev/null; then
-                echo -e "${RED}${CROSS} Ошибка установки $package${NC}"
+    case "$PACKAGE_MANAGER" in
+        apt)
+            # Debian/Ubuntu
+            if ! apt-get update -qq; then
+                echo -e "${RED}${CROSS} Ошибка обновления списка пакетов${NC}"
                 exit 1
             fi
-        fi
-    done
+            
+            local base_packages="curl wget gnupg lsb-release ca-certificates apt-transport-https software-properties-common"
+            local missing_packages=""
+            
+            for package in $base_packages; do
+                if ! dpkg -l | grep -q "^ii  $package "; then
+                    missing_packages="$missing_packages $package"
+                fi
+            done
+            
+            if [ -n "$missing_packages" ]; then
+                echo -e "${BLUE}${GEAR} Установка базовых пакетов:$missing_packages${NC}"
+                if ! apt-get install -y $missing_packages &>/dev/null; then
+                    echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
+                    exit 1
+                fi
+            fi
+            ;;
+            
+        dnf|yum)
+            # RHEL/CentOS/Fedora
+            if ! $PACKAGE_MANAGER update -y -q; then
+                echo -e "${RED}${CROSS} Ошибка обновления списка пакетов${NC}"
+                exit 1
+            fi
+            
+            local base_packages="curl wget gnupg2 ca-certificates"
+            echo -e "${BLUE}${GEAR} Установка базовых пакетов: $base_packages${NC}"
+            if ! $PACKAGE_MANAGER install -y $base_packages &>/dev/null; then
+                echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
+                exit 1
+            fi
+            ;;
+            
+        pacman)
+            # Arch Linux
+            if ! pacman -Sy --noconfirm; then
+                echo -e "${RED}${CROSS} Ошибка обновления списка пакетов${NC}"
+                exit 1
+            fi
+            
+            local base_packages="curl wget gnupg ca-certificates"
+            echo -e "${BLUE}${GEAR} Установка базовых пакетов: $base_packages${NC}"
+            if ! pacman -S --noconfirm $base_packages &>/dev/null; then
+                echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
+                exit 1
+            fi
+            ;;
+            
+        zypper)
+            # openSUSE
+            if ! zypper refresh -q; then
+                echo -e "${RED}${CROSS} Ошибка обновления списка пакетов${NC}"
+                exit 1
+            fi
+            
+            local base_packages="curl wget gpg2 ca-certificates"
+            echo -e "${BLUE}${GEAR} Установка базовых пакетов: $base_packages${NC}"
+            if ! zypper install -y $base_packages &>/dev/null; then
+                echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
+                exit 1
+            fi
+            ;;
+    esac
     
     echo -e "${GREEN}${CHECKMARK} Система обновлена и готова${NC}"
 }
@@ -319,30 +428,97 @@ start_installation() {
             log_step 'Начало автоматической установки Nextcloud AIO'
             
             # Проверка системы
-            log_step 'Проверка системы Debian...'
-            if [ ! -f /etc/debian_version ]; then
-                log_error 'Система не является Debian/Ubuntu'
+            log_step 'Определение операционной системы...'
+            
+            # Определяем ОС
+            if [ -f /etc/os-release ]; then
+                . /etc/os-release
+                OS_ID=\"\$ID\"
+                OS_NAME=\"\$PRETTY_NAME\"
+                log_step \"Обнаружена система: \$OS_NAME\"
+            else
+                log_error 'Не удалось определить операционную систему'
                 exit 1
             fi
             
-            debian_version=\$(cat /etc/debian_version | cut -d. -f1)
-            log_step \"Обнаружена Debian версии: \$debian_version\"
+            # Определяем пакетный менеджер
+            case \"\$OS_ID\" in
+                debian|ubuntu)
+                    PACKAGE_MANAGER=\"apt\"
+                    ;;
+                fedora|centos|rhel|rocky|almalinux)
+                    PACKAGE_MANAGER=\"dnf\"
+                    if ! command -v dnf &> /dev/null; then
+                        PACKAGE_MANAGER=\"yum\"
+                    fi
+                    ;;
+                arch|manjaro)
+                    PACKAGE_MANAGER=\"pacman\"
+                    ;;
+                opensuse*|sles)
+                    PACKAGE_MANAGER=\"zypper\"
+                    ;;
+                *)
+                    PACKAGE_MANAGER=\"apt\"
+                    ;;
+            esac
+            
+            log_step \"Используется пакетный менеджер: \$PACKAGE_MANAGER\"
             
             # Обновление системы
             log_step 'Обновление системы и установка базовых пакетов...'
-            export DEBIAN_FRONTEND=noninteractive
             
-            if ! apt-get update -qq; then
-                log_error 'Ошибка обновления списка пакетов'
-                exit 1
-            fi
-            
-            # Устанавливаем базовые пакеты
-            base_packages=\"curl wget gnupg lsb-release ca-certificates apt-transport-https software-properties-common\"
-            if ! apt-get install -y \$base_packages &>/dev/null; then
-                log_error 'Ошибка установки базовых пакетов'
-                exit 1
-            fi
+            case \"\$PACKAGE_MANAGER\" in
+                apt)
+                    export DEBIAN_FRONTEND=noninteractive
+                    if ! apt-get update -qq; then
+                        log_error 'Ошибка обновления списка пакетов'
+                        exit 1
+                    fi
+                    
+                    base_packages=\"curl wget gnupg lsb-release ca-certificates apt-transport-https software-properties-common\"
+                    if ! apt-get install -y \$base_packages &>/dev/null; then
+                        log_error 'Ошибка установки базовых пакетов'
+                        exit 1
+                    fi
+                    ;;
+                dnf|yum)
+                    if ! \$PACKAGE_MANAGER update -y -q; then
+                        log_error 'Ошибка обновления списка пакетов'
+                        exit 1
+                    fi
+                    
+                    base_packages=\"curl wget gnupg2 ca-certificates\"
+                    if ! \$PACKAGE_MANAGER install -y \$base_packages &>/dev/null; then
+                        log_error 'Ошибка установки базовых пакетов'
+                        exit 1
+                    fi
+                    ;;
+                pacman)
+                    if ! pacman -Sy --noconfirm; then
+                        log_error 'Ошибка обновления списка пакетов'
+                        exit 1
+                    fi
+                    
+                    base_packages=\"curl wget gnupg ca-certificates\"
+                    if ! pacman -S --noconfirm \$base_packages &>/dev/null; then
+                        log_error 'Ошибка установки базовых пакетов'
+                        exit 1
+                    fi
+                    ;;
+                zypper)
+                    if ! zypper refresh -q; then
+                        log_error 'Ошибка обновления списка пакетов'
+                        exit 1
+                    fi
+                    
+                    base_packages=\"curl wget gpg2 ca-certificates\"
+                    if ! zypper install -y \$base_packages &>/dev/null; then
+                        log_error 'Ошибка установки базовых пакетов'
+                        exit 1
+                    fi
+                    ;;
+            esac
             
             log_step 'Определение IP адреса VPS...'
             VPS_IP=\$(curl -s --connect-timeout 10 ifconfig.me 2>/dev/null || \\
@@ -375,55 +551,24 @@ start_installation() {
                 log_step \"Диск: \${disk_gb}GB свободно - OK\"
             fi
             
-            # Установка Docker
+            # Установка Docker универсальным способом
             log_step 'Установка Docker...'
             
-            # Удаляем старые версии если есть
-            apt-get remove -y docker docker-engine docker.io containerd runc &>/dev/null || true
-            
-            # Добавляем GPG ключ Docker
-            mkdir -p /etc/apt/keyrings
-            if ! curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null; then
-                log_error 'Ошибка добавления GPG ключа Docker'
-                exit 1
-            fi
-            
-            # Добавляем репозиторий Docker для Debian
-            echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \$(lsb_release -cs) stable\" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-            
-            # Обновляем и устанавливаем Docker
-            if ! apt-get update -qq; then
-                log_error 'Ошибка обновления после добавления репозитория Docker'
-                exit 1
-            fi
-            
-            if ! apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin &>/dev/null; then
-                log_error 'Ошибка установки Docker'
-                exit 1
+            # Проверяем наличие Docker
+            if command -v docker &> /dev/null; then
+                log_step 'Docker уже установлен, пропускаем установку'
+            else
+                # Используем официальный скрипт Docker - работает на всех дистрибутивах
+                log_step 'Загрузка и запуск официального установщика Docker...'
+                if ! curl -fsSL https://get.docker.com | sh; then
+                    log_error 'Ошибка установки Docker через официальный скрипт'
+                    exit 1
+                fi
+                
+                log_step 'Docker успешно установлен'
             fi
             
             log_step 'Настройка Docker...'
-            
-            # Запускаем и включаем Docker
-            if ! systemctl start docker; then
-                log_error 'Ошибка запуска Docker'
-                exit 1
-            fi
-            
-            if ! systemctl enable docker &>/dev/null; then
-                log_error 'Ошибка включения автозапуска Docker'
-                exit 1
-            fi
-            
-            # Проверяем что Docker работает
-            if ! docker --version &>/dev/null; then
-                log_error 'Docker не работает корректно'
-                exit 1
-            fi
-            
-            log_step 'Docker успешно установлен и настроен'
-            
-            log_step 'Запуск Nextcloud AIO контейнера...'
             
             # Останавливаем старый контейнер если есть
             docker stop '$CONTAINER_NAME' 2>/dev/null || true
@@ -433,6 +578,7 @@ start_installation() {
             if ! docker pull nextcloud/all-in-one:latest &>/dev/null; then
                 log_error 'Ошибка загрузки образа Nextcloud AIO'
                 exit 1
+{{ ... }}
             fi
             
             # Запускаем контейнер для прямого доступа по IP (без SSL/reverse proxy)
