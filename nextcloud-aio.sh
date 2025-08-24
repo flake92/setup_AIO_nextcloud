@@ -1027,6 +1027,7 @@ main_loop() {
 
 main() {
     check_root
+    detect_os
     update_system
     install_dependencies
     mkdir -p "$(dirname "$INSTALL_LOG")" 2>/dev/null || true
