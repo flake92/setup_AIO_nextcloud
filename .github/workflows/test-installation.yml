@@ -20,13 +20,13 @@ jobs:
       - name: Check script syntax
         run: |
           echo "Checking script syntax..."
-          bash -n install-nextcloud-aio.sh
+          bash -n nextcloud-aio.sh
           echo "✅ Syntax check passed"
       
       - name: Run shellcheck
         run: |
           echo "Running shellcheck..."
-          shellcheck install-nextcloud-aio.sh || echo "⚠️ Shellcheck warnings found"
+          shellcheck nextcloud-aio.sh || echo "⚠️ Shellcheck warnings found"
           echo "✅ Shellcheck completed"
 
   url-test:
@@ -38,13 +38,13 @@ jobs:
       - name: Test script download
         run: |
           echo "Testing script download URL..."
-          wget --spider https://raw.githubusercontent.com/flake92/setup_AIO_nextcloud/main/install-nextcloud-aio.sh
+          wget --spider https://raw.githubusercontent.com/flake92/setup_AIO_nextcloud/main/nextcloud-aio.sh
           echo "✅ Download URL is accessible"
       
       - name: Test actual download
         run: |
           echo "Testing actual file download..."
-          wget https://raw.githubusercontent.com/flake92/setup_AIO_nextcloud/main/install-nextcloud-aio.sh -O test-download.sh
+          wget https://raw.githubusercontent.com/flake92/setup_AIO_nextcloud/main/nextcloud-aio.sh -O test-download.sh
           chmod +x test-download.sh
           bash -n test-download.sh
           echo "✅ Downloaded script is valid"
