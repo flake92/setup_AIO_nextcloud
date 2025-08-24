@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # 🌟 Nextcloud AIO - Универсальный установщик
-# Полностью автоматизированная установка с защитой от отключения SSH
-# Поддерживает любые Linux дистрибутивы через Docker
+# Простая и надёжная установка Nextcloud All-in-One
+# Автоматическая настройка с защитой от отключения SSH
 
 set -euo pipefail
 
-# 🎨 Цвета и стили
+# 🎨 Цвета для красивого вывода
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -14,17 +14,15 @@ BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 WHITE='\033[1;37m'
-GRAY='\033[0;37m'
 NC='\033[0m'
 
-# 🔧 Конфигурация
+# 🔧 Основные настройки
 INSTALL_LOG="/var/log/nextcloud-aio-install.log"
 SCREEN_SESSION="nextcloud-aio-install"
 CONTAINER_NAME="nextcloud-aio"
-PID_FILE="/var/run/nextcloud-aio-install.pid"
 VPS_IP=""
 
-# 🎨 Красивые символы
+# 🎨 Символы для статуса
 CHECKMARK="✅"
 CROSS="❌"
 WARNING="⚠️"
@@ -34,7 +32,7 @@ GEAR="⚙️"
 CLOUD="☁️"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🎨 КРАСИВЫЕ ФУНКЦИИ ИНТЕРФЕЙСА
+# 🎨 ПОЛЬЗОВАТЕЛЬСКИЙ ИНТЕРФЕЙС
 # ═══════════════════════════════════════════════════════════════════════════════
 
 print_banner() {
@@ -42,107 +40,90 @@ print_banner() {
     echo -e "${PURPLE}"
     echo "╔══════════════════════════════════════════════════════════════════════════╗"
     echo "║                                                                          ║"
-    echo "║    ${CLOUD}${WHITE}  NEXTCLOUD AIO - АВТОМАТИЧЕСКАЯ УСТАНОВКА  ${CLOUD}${PURPLE}                ║"
+    echo "║    ${CLOUD}${WHITE}  NEXTCLOUD AIO - ПРОСТАЯ УСТАНОВКА  ${CLOUD}${PURPLE}                      ║"
     echo "║                                                                          ║"
-    echo "║    ${CYAN}Красивое интерактивное меню с защитой от отключения SSH${PURPLE}        ║"
+    echo "║    ${CYAN}Автоматическая настройка с защитой от отключения SSH${PURPLE}           ║"
     echo "║                                                                          ║"
     echo "╚══════════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}\n"
 }
 
-print_status_box() {
-    local container_status
-    local install_status
-    local progress
+print_status() {
+    local container_status install_status
     container_status=$(get_container_status)
     install_status=$(get_install_status)
-    progress=$(get_install_progress)
     
-    echo -e "${CYAN}"
-    echo "┌─────────────────────────── ${WHITE}СТАТУС СИСТЕМЫ${CYAN} ───────────────────────────┐"
+    echo -e "${CYAN}┌─── ${WHITE}СТАТУС${CYAN} ───┐${NC}"
     
-    # Статус установки
     case $install_status in
         "running")
-            echo -e "│ ${GEAR}${YELLOW} Установка:${NC} ${BLUE}Выполняется${NC} ${GRAY}($progress)${NC}                           ${CYAN}│"
+            echo -e "${CYAN}│${NC} ${GEAR} ${YELLOW}Установка${NC}"
             ;;
         "completed")
-            echo -e "│ ${CHECKMARK}${GREEN} Установка:${NC} ${GREEN}Завершена успешно${NC}                              ${CYAN}│"
+            echo -e "${CYAN}│${NC} ${CHECKMARK} ${GREEN}Готово${NC}"
             ;;
         "failed")
-            echo -e "│ ${CROSS}${RED} Установка:${NC} ${RED}Ошибка${NC}                                        ${CYAN}│"
+            echo -e "${CYAN}│${NC} ${CROSS} ${RED}Ошибка${NC}"
             ;;
         *)
-            echo -e "│ ${INFO}${GRAY} Установка:${NC} ${GRAY}Не запущена${NC}                                   ${CYAN}│"
+            echo -e "${CYAN}│${NC} ${INFO} ${GRAY}Готов к установке${NC}"
             ;;
     esac
     
-    # Статус контейнера
     case $container_status in
         "running")
-            echo -e "│ ${CHECKMARK}${GREEN} Контейнер:${NC} ${GREEN}Активен и работает${NC}                            ${CYAN}│"
+            echo -e "${CYAN}│${NC} ${CHECKMARK} ${GREEN}Nextcloud работает${NC}"
             ;;
         "stopped")
-            echo -e "│ ${WARNING}${YELLOW} Контейнер:${NC} ${YELLOW}Остановлен${NC}                                    ${CYAN}│"
+            echo -e "${CYAN}│${NC} ${WARNING} ${YELLOW}Nextcloud остановлен${NC}"
             ;;
         *)
-            echo -e "│ ${CROSS}${RED} Контейнер:${NC} ${RED}Не найден${NC}                                      ${CYAN}│"
+            echo -e "${CYAN}│${NC} ${CROSS} ${RED}Nextcloud не установлен${NC}"
             ;;
     esac
     
-    # IP адрес
     if [ -n "$VPS_IP" ]; then
-        echo -e "│ ${CLOUD}${BLUE} IP адрес:${NC} ${WHITE}$VPS_IP${NC}                                        ${CYAN}│"
-    else
-        echo -e "│ ${WARNING}${YELLOW} IP адрес:${NC} ${GRAY}Определяется...${NC}                                ${CYAN}│"
+        echo -e "${CYAN}│${NC} ${CLOUD} ${BLUE}IP: ${WHITE}$VPS_IP${NC}"
     fi
     
-    echo -e "└──────────────────────────────────────────────────────────────────────┘${NC}\n"
+    echo -e "${CYAN}└──────────────┘${NC}\n"
 }
 
 print_menu() {
-    echo -e "${WHITE}"
-    echo "┌─────────────────────────── ${CYAN}ГЛАВНОЕ МЕНЮ${WHITE} ────────────────────────────┐"
-    
-    local install_status
-    local container_status
+    local install_status container_status
     install_status=$(get_install_status)
     container_status=$(get_container_status)
     
-    # Динамическое меню в зависимости от статуса
+    echo -e "${WHITE}┌─── ${CYAN}МЕНЮ${WHITE} ───┐${NC}"
+    
     if [ "$install_status" = "not_started" ] || [ "$install_status" = "failed" ]; then
-        echo -e "│  ${ROCKET}${GREEN} 1${NC} ${GREEN}Запустить автоматическую установку${NC}                       ${WHITE}│"
-        echo -e "│  ${INFO}${BLUE} 2${NC} ${BLUE}Диагностика системы${NC}                                      ${WHITE}│"
-        echo -e "│                                                                      ${WHITE}│"
+        echo -e "${WHITE}│${NC} ${ROCKET} ${GREEN}1${NC} Установить Nextcloud"
+        echo -e "${WHITE}│${NC} ${INFO} ${BLUE}2${NC} Диагностика"
         
     elif [ "$install_status" = "running" ]; then
-        echo -e "│  ${GEAR}${BLUE} 1${NC} ${BLUE}Подключиться к процессу установки${NC}                        ${WHITE}│"
-        echo -e "│  ${INFO}${YELLOW} 2${NC} ${YELLOW}Показать логи установки${NC}                                  ${WHITE}│"
-        echo -e "│  ${CROSS}${RED} 3${NC} ${RED}Перезапустить установку${NC}                                  ${WHITE}│"
-        echo -e "│                                                                      ${WHITE}│"
+        echo -e "${WHITE}│${NC} ${GEAR} ${BLUE}1${NC} Подключиться к установке"
+        echo -e "${WHITE}│${NC} ${INFO} ${YELLOW}2${NC} Показать логи"
+        echo -e "${WHITE}│${NC} ${CROSS} ${RED}3${NC} Перезапустить"
         
     elif [ "$install_status" = "completed" ]; then
         if [ "$container_status" = "running" ]; then
-            echo -e "│  ${CHECKMARK}${GREEN} 1${NC} ${GREEN}Управление контейнером${NC}                                   ${WHITE}│"
-            echo -e "│  ${INFO}${BLUE} 2${NC} ${BLUE}Показать информацию о доступе${NC}                             ${WHITE}│"
-            echo -e "│  ${GEAR}${YELLOW} 3${NC} ${YELLOW}Диагностика системы${NC}                                      ${WHITE}│"
-            echo -e "│  ${ROCKET}${PURPLE} 4${NC} ${PURPLE}Переустановить Nextcloud AIO${NC}                             ${WHITE}│"
+            echo -e "${WHITE}│${NC} ${CHECKMARK} ${GREEN}1${NC} Управление"
+            echo -e "${WHITE}│${NC} ${INFO} ${BLUE}2${NC} Информация о доступе"
         else
-            echo -e "│  ${ROCKET}${GREEN} 1${NC} ${GREEN}Запустить контейнер${NC}                                      ${WHITE}│"
-            echo -e "│  ${INFO}${BLUE} 2${NC} ${BLUE}Показать информацию о доступе${NC}                             ${WHITE}│"
-            echo -e "│  ${GEAR}${YELLOW} 3${NC} ${YELLOW}Диагностика системы${NC}                                      ${WHITE}│"
-            echo -e "│  ${ROCKET}${PURPLE} 4${NC} ${PURPLE}Переустановить Nextcloud AIO${NC}                             ${WHITE}│"
+            echo -e "${WHITE}│${NC} ${ROCKET} ${GREEN}1${NC} Запустить Nextcloud"
+            echo -e "${WHITE}│${NC} ${INFO} ${BLUE}2${NC} Информация о доступе"
         fi
-        echo -e "│                                                                      ${WHITE}│"
+        echo -e "${WHITE}│${NC} ${GEAR} ${YELLOW}3${NC} Диагностика"
+        echo -e "${WHITE}│${NC} ${ROCKET} ${PURPLE}4${NC} Переустановить"
     fi
     
-    echo -e "│  ${GRAY} 0${NC} ${GRAY}Выход${NC}                                                        ${WHITE}│"
-    echo -e "└──────────────────────────────────────────────────────────────────────┘${NC}\n"
-    echo -e "${CYAN}Выберите опцию:${NC} "
+    echo -e "${WHITE}│${NC} ${GRAY}0${NC} Выход"
+    echo -e "${WHITE}└─────────────┘${NC}\n"
+    echo -e "${CYAN}Выбор:${NC} "
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🔧 СИСТЕМНЫЕ ФУНКЦИИ
+# 🔧 ОСНОВНЫЕ ФУНКЦИИ
 # ═══════════════════════════════════════════════════════════════════════════════
 
 check_root() {
@@ -219,136 +200,58 @@ detect_os() {
     fi
 }
 
-install_docker_universal() {
-    if [ "$DOCKER_INSTALLED" = true ]; then
-        return 0
-    fi
+install_docker() {
+    [ "$DOCKER_INSTALLED" = true ] && return 0
     
-    echo -e "${BLUE}${GEAR} Установка Docker универсальным способом...${NC}"
+    echo -e "${BLUE}${GEAR} Установка Docker...${NC}"
     
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS - Docker Desktop
-        echo -e "${BLUE}${INFO} На macOS требуется Docker Desktop${NC}"
-        echo -e "${YELLOW}${WARNING} Установите Docker Desktop вручную:${NC}"
-        echo -e "${CYAN}1. Скачайте с https://www.docker.com/products/docker-desktop${NC}"
-        echo -e "${CYAN}2. Установите и запустите Docker Desktop${NC}"
-        echo -e "${CYAN}3. Перезапустите этот скрипт${NC}"
-        
-        # Проверяем наличие Homebrew для альтернативной установки
-        if command -v brew &> /dev/null; then
-            echo -e "${BLUE}${INFO} Альтернативно, можете установить через Homebrew:${NC}"
-            echo -e "${CYAN}brew install --cask docker${NC}"
-        fi
-        
+        echo -e "${YELLOW}${WARNING} На macOS установите Docker Desktop:${NC}"
+        echo -e "${CYAN}https://www.docker.com/products/docker-desktop${NC}"
         exit 1
+    fi
+    
+    # Установка Docker на Linux
+    if curl -fsSL https://get.docker.com | sh && \
+       systemctl start docker && \
+       systemctl enable docker; then
+        echo -e "${GREEN}${CHECKMARK} Docker установлен${NC}"
+        return 0
     else
-        # Linux - используем официальный скрипт Docker
-        if curl -fsSL https://get.docker.com | sh; then
-            echo -e "${GREEN}${CHECKMARK} Docker успешно установлен${NC}"
-            
-            # Запускаем и включаем Docker
-            if systemctl start docker && systemctl enable docker; then
-                echo -e "${GREEN}${CHECKMARK} Docker запущен и настроен${NC}"
-            else
-                echo -e "${YELLOW}${WARNING} Не удалось настроить автозапуск Docker${NC}"
-            fi
-            
-            # Проверяем работу Docker
-            if docker --version &>/dev/null; then
-                echo -e "${GREEN}${CHECKMARK} Docker работает корректно${NC}"
-                return 0
-            else
-                echo -e "${RED}${CROSS} Docker установлен, но не работает${NC}"
-                return 1
-            fi
-        else
-            echo -e "${RED}${CROSS} Ошибка установки Docker${NC}"
-            return 1
-        fi
+        echo -e "${RED}${CROSS} Ошибка установки Docker${NC}"
+        return 1
     fi
 }
 
 update_system() {
-    echo -e "${BLUE}${GEAR} Обновление системы...${NC}"
+    echo -e "${BLUE}${GEAR} Подготовка системы...${NC}"
+    
+    # Очищаем старые репозитории Docker если есть
+    if [ -f /etc/apt/sources.list.d/docker.list ]; then
+        rm -f /etc/apt/sources.list.d/docker.list
+    fi
     
     case "$PACKAGE_MANAGER" in
         apt)
-            # Debian/Ubuntu
-            if ! apt-get update -qq; then
-                echo -e "${RED}${CROSS} Ошибка обновления списка пакетов${NC}"
-                exit 1
-            fi
-            
-            local base_packages="curl wget gnupg lsb-release ca-certificates apt-transport-https software-properties-common"
-            local missing_packages=""
-            
-            for package in $base_packages; do
-                if ! dpkg -l | grep -q "^ii  $package "; then
-                    missing_packages="$missing_packages $package"
-                fi
-            done
-            
-            if [ -n "$missing_packages" ]; then
-                echo -e "${BLUE}${GEAR} Установка базовых пакетов:$missing_packages${NC}"
-                if ! apt-get install -y "$missing_packages" &>/dev/null; then
-                    echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
-                    exit 1
-                fi
-            fi
+            apt-get update -qq || { echo -e "${RED}${CROSS} Ошибка обновления${NC}"; exit 1; }
+            apt-get install -y curl wget gnupg ca-certificates lsb-release &>/dev/null
             ;;
-            
         dnf|yum)
-            # RHEL/CentOS/Fedora
-            if ! $PACKAGE_MANAGER update -y -q; then
-                echo -e "${RED}${CROSS} Ошибка обновления списка пакетов${NC}"
-                exit 1
-            fi
-            
-            local base_packages="curl wget gnupg2 ca-certificates"
-            echo -e "${BLUE}${GEAR} Установка базовых пакетов: $base_packages${NC}"
-            if ! $PACKAGE_MANAGER install -y "$base_packages" &>/dev/null; then
-                echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
-                exit 1
-            fi
+            $PACKAGE_MANAGER update -y -q || { echo -e "${RED}${CROSS} Ошибка обновления${NC}"; exit 1; }
+            $PACKAGE_MANAGER install -y curl wget gnupg2 ca-certificates &>/dev/null
             ;;
-            
         pacman)
-            # Arch Linux
-            if ! pacman -Sy --noconfirm; then
-                echo -e "${RED}${CROSS} Ошибка обновления списка пакетов${NC}"
-                exit 1
-            fi
-            
-            local base_packages="curl wget gnupg ca-certificates"
-            echo -e "${BLUE}${GEAR} Установка базовых пакетов: $base_packages${NC}"
-            if ! pacman -S --noconfirm "$base_packages" &>/dev/null; then
-                echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
-                exit 1
-            fi
+            pacman -Sy --noconfirm || { echo -e "${RED}${CROSS} Ошибка обновления${NC}"; exit 1; }
+            pacman -S --noconfirm curl wget gnupg ca-certificates &>/dev/null
             ;;
-            
         zypper)
-            # openSUSE
-            if ! zypper refresh -q; then
-                echo -e "${RED}${CROSS} Ошибка обновления списка пакетов${NC}"
-                exit 1
-            fi
-            
-            local base_packages="curl wget gpg2 ca-certificates"
-            echo -e "${BLUE}${GEAR} Установка базовых пакетов: $base_packages${NC}"
-            if ! zypper install -y "$base_packages" &>/dev/null; then
-                echo -e "${RED}${CROSS} Ошибка установки базовых пакетов${NC}"
-                exit 1
-            fi
+            zypper refresh -q || { echo -e "${RED}${CROSS} Ошибка обновления${NC}"; exit 1; }
+            zypper install -y curl wget gpg2 ca-certificates &>/dev/null
             ;;
-            
         brew)
-            # macOS - Homebrew
             if ! command -v brew &> /dev/null; then
-                echo -e "${YELLOW}${WARNING} Homebrew не найден, устанавливаем...${NC}"
+                echo -e "${YELLOW}${WARNING} Установка Homebrew...${NC}"
                 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-                
-                # Добавляем Homebrew в PATH для Apple Silicon
                 if [[ $(uname -m) == "arm64" ]]; then
                     echo "export PATH=\"/opt/homebrew/bin:\$PATH\"" >> ~/.zshrc
                     export PATH="/opt/homebrew/bin:$PATH"
@@ -357,25 +260,11 @@ update_system() {
                     export PATH="/usr/local/bin:$PATH"
                 fi
             fi
-            
-            echo -e "${BLUE}${GEAR} Обновление Homebrew...${NC}"
-            if ! brew update &>/dev/null; then
-                echo -e "${YELLOW}${WARNING} Не удалось обновить Homebrew${NC}"
-            fi
-            
-            local base_packages="curl wget gnupg screen"
-            echo -e "${BLUE}${GEAR} Установка базовых пакетов: $base_packages${NC}"
-            for package in $base_packages; do
-                if ! brew list "$package" &>/dev/null; then
-                    if ! brew install "$package" &>/dev/null; then
-                        echo -e "${YELLOW}${WARNING} Не удалось установить $package${NC}"
-                    fi
-                fi
-            done
+            brew update &>/dev/null
             ;;
     esac
     
-    echo -e "${GREEN}${CHECKMARK} Система обновлена и готова${NC}"
+    echo -e "${GREEN}${CHECKMARK} Система готова${NC}"
 }
 
 detect_ip() {
@@ -386,29 +275,16 @@ detect_ip() {
 }
 
 install_dependencies() {
-    echo -e "${BLUE}${GEAR} Проверка и установка зависимостей...${NC}"
+    echo -e "${BLUE}${GEAR} Установка screen...${NC}"
     
-    # Список необходимых пакетов
-    local required_packages="screen curl wget gnupg lsb-release ca-certificates apt-transport-https"
-    local missing_packages=""
-    
-    # Проверяем какие пакеты отсутствуют
-    for package in $required_packages; do
-        if ! command -v "$package" &> /dev/null && ! dpkg -l | grep -q "^ii  $package "; then
-            missing_packages="$missing_packages $package"
+    if ! command -v screen &> /dev/null; then
+        if apt-get install -y screen &>/dev/null; then
+            echo -e "${GREEN}${CHECKMARK} Screen установлен${NC}"
+        else
+            echo -e "${YELLOW}${WARNING} Не удалось установить screen${NC}"
         fi
-    done
-    
-    # Устанавливаем отсутствующие пакеты
-    if [ -n "$missing_packages" ]; then
-        echo -e "${BLUE}${GEAR} Установка недостающих пакетов:$missing_packages${NC}"
-        if ! apt-get install -y "$missing_packages" &>/dev/null; then
-            echo -e "${RED}${CROSS} Ошибка установки зависимостей${NC}"
-            exit 1
-        fi
-        echo -e "${GREEN}${CHECKMARK} Зависимости установлены${NC}"
     else
-        echo -e "${GREEN}${CHECKMARK} Все зависимости уже установлены${NC}"
+        echo -e "${GREEN}${CHECKMARK} Screen уже установлен${NC}"
     fi
 }
 
@@ -1047,7 +923,9 @@ main() {
     check_root
     detect_os
     update_system
+    install_docker
     install_dependencies
+    detect_ip
     mkdir -p "$(dirname "$INSTALL_LOG")" 2>/dev/null || true
     main_loop
 }
