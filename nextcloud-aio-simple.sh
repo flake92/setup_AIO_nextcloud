@@ -67,12 +67,21 @@ echo -e "${GEAR} Очистка старых контейнеров..."
 docker stop nextcloud-aio 2>/dev/null || true
 docker rm nextcloud-aio 2>/dev/null || true
 
+# Открытие порта в firewall
+echo -e "${GEAR} Настройка firewall..."
+if command -v ufw &> /dev/null; then
+    ufw allow 8080/tcp
+    ufw allow 80/tcp
+    ufw allow 443/tcp
+fi
+
 # Запуск Nextcloud AIO
 echo -e "${GEAR} Запуск Nextcloud AIO..."
 docker run -d \
     --name nextcloud-aio \
     --restart always \
     -p 8080:8080 \
+    -p 8443:8443 \
     -e APACHE_PORT=11000 \
     -e APACHE_IP_BINDING=0.0.0.0 \
     -v nextcloud_aio_mastercontainer:/mnt/docker-aio-config \
@@ -81,17 +90,33 @@ docker run -d \
 
 # Ожидание запуска
 echo -e "${GEAR} Ожидание запуска контейнера..."
-sleep 10
+sleep 15
+
+# Диагностика
+echo -e "${INFO} Диагностика подключения..."
+echo -e "${INFO} Статус контейнера:"
+docker ps | grep nextcloud-aio || echo "Контейнер не найден"
+
+echo -e "${INFO} Порты:"
+netstat -tlnp | grep :8080 || echo "Порт 8080 не слушается"
+
+echo -e "${INFO} Логи контейнера (последние 10 строк):"
+docker logs --tail 10 nextcloud-aio 2>/dev/null || echo "Нет логов"
 
 # Проверка статуса
 if docker ps | grep -q nextcloud-aio; then
-    echo -e "\n${CHECKMARK} ${GREEN}Nextcloud AIO успешно запущен!${NC}\n"
-    echo -e "${INFO} Панель управления: ${BLUE}http://$VPS_IP:8080${NC}"
-    echo -e "${INFO} Для настройки откройте ссылку в браузере"
-    echo -e "\n${WARNING} Сохраните пароль администратора из веб-интерфейса!"
+    echo -e "\n${CHECKMARK} ${GREEN}Nextcloud AIO запущен!${NC}\n"
+    echo -e "${INFO} Попробуйте эти ссылки:"
+    echo -e "${BLUE}https://$VPS_IP:8080${NC} (HTTPS - рекомендуется)"
+    echo -e "${BLUE}http://$VPS_IP:8080${NC} (HTTP)"
+    echo -e "\n${WARNING} Если не открывается:"
+    echo -e "1. Проверьте firewall: ${YELLOW}ufw status${NC}"
+    echo -e "2. Проверьте логи: ${YELLOW}docker logs nextcloud-aio${NC}"
+    echo -e "3. Попробуйте перезапустить: ${YELLOW}docker restart nextcloud-aio${NC}"
 else
-    echo -e "\n${CROSS} ${RED}Ошибка запуска контейнера${NC}"
-    echo -e "${INFO} Проверьте логи: ${YELLOW}docker logs nextcloud-aio${NC}"
+    echo -e "\n${CROSS} ${RED}Контейнер не запущен${NC}"
+    echo -e "${INFO} Логи ошибок:"
+    docker logs nextcloud-aio
     exit 1
 fi
 
