@@ -172,7 +172,7 @@ detect_os() {
         . /etc/os-release
         OS_ID="$ID"
         OS_VERSION="$VERSION_ID"
-        OS_CODENAME="$VERSION_CODENAME"
+        export OS_CODENAME="$VERSION_CODENAME"
         OS_NAME="$PRETTY_NAME"
     elif [ -f /etc/debian_version ]; then
         OS_ID="debian"
@@ -182,7 +182,7 @@ detect_os() {
         OS_ID="rhel"
         OS_NAME=$(cat /etc/redhat-release)
     elif [ -f /etc/arch-release ]; then
-        OS_ID="arch"
+        export OS_ID="arch"
         OS_NAME="Arch Linux"
     else
         echo -e "${RED}${CROSS} Неподдерживаемая операционная система${NC}"
@@ -350,10 +350,10 @@ update_system() {
                 
                 # Добавляем Homebrew в PATH для Apple Silicon
                 if [[ $(uname -m) == "arm64" ]]; then
-                    echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
+                    echo "export PATH=\"/opt/homebrew/bin:\$PATH\"" >> ~/.zshrc
                     export PATH="/opt/homebrew/bin:$PATH"
                 else
-                    echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.zshrc
+                    echo "export PATH=\"/usr/local/bin:\$PATH\"" >> ~/.zshrc
                     export PATH="/usr/local/bin:$PATH"
                 fi
             fi
