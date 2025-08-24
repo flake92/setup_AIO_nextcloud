@@ -101,21 +101,35 @@ print_menu() {
     echo "┌─────────────────────────── ${CYAN}ГЛАВНОЕ МЕНЮ${WHITE} ────────────────────────────┐"
     
     local install_status=$(get_install_status)
+    local container_status=$(get_container_status)
     
+    # Динамическое меню в зависимости от статуса
     if [ "$install_status" = "not_started" ] || [ "$install_status" = "failed" ]; then
         echo -e "│  ${ROCKET}${GREEN} 1${NC} ${GREEN}Запустить автоматическую установку${NC}                       ${WHITE}│"
+        echo -e "│  ${INFO}${BLUE} 2${NC} ${BLUE}Диагностика системы${NC}                                      ${WHITE}│"
+        echo -e "│                                                                      ${WHITE}│"
+        
     elif [ "$install_status" = "running" ]; then
         echo -e "│  ${GEAR}${BLUE} 1${NC} ${BLUE}Подключиться к процессу установки${NC}                        ${WHITE}│"
         echo -e "│  ${INFO}${YELLOW} 2${NC} ${YELLOW}Показать логи установки${NC}                                  ${WHITE}│"
         echo -e "│  ${CROSS}${RED} 3${NC} ${RED}Перезапустить установку${NC}                                  ${WHITE}│"
-    else
-        echo -e "│  ${CHECKMARK}${GREEN} 1${NC} ${GREEN}Управление контейнером${NC}                                   ${WHITE}│"
-        echo -e "│  ${INFO}${BLUE} 2${NC} ${BLUE}Показать информацию о доступе${NC}                             ${WHITE}│"
-        echo -e "│  ${GEAR}${YELLOW} 3${NC} ${YELLOW}Диагностика системы${NC}                                      ${WHITE}│"
-        echo -e "│  ${ROCKET}${PURPLE} 4${NC} ${PURPLE}Переустановить Nextcloud AIO${NC}                             ${WHITE}│"
+        echo -e "│                                                                      ${WHITE}│"
+        
+    elif [ "$install_status" = "completed" ]; then
+        if [ "$container_status" = "running" ]; then
+            echo -e "│  ${CHECKMARK}${GREEN} 1${NC} ${GREEN}Управление контейнером${NC}                                   ${WHITE}│"
+            echo -e "│  ${INFO}${BLUE} 2${NC} ${BLUE}Показать информацию о доступе${NC}                             ${WHITE}│"
+            echo -e "│  ${GEAR}${YELLOW} 3${NC} ${YELLOW}Диагностика системы${NC}                                      ${WHITE}│"
+            echo -e "│  ${ROCKET}${PURPLE} 4${NC} ${PURPLE}Переустановить Nextcloud AIO${NC}                             ${WHITE}│"
+        else
+            echo -e "│  ${ROCKET}${GREEN} 1${NC} ${GREEN}Запустить контейнер${NC}                                      ${WHITE}│"
+            echo -e "│  ${INFO}${BLUE} 2${NC} ${BLUE}Показать информацию о доступе${NC}                             ${WHITE}│"
+            echo -e "│  ${GEAR}${YELLOW} 3${NC} ${YELLOW}Диагностика системы${NC}                                      ${WHITE}│"
+            echo -e "│  ${ROCKET}${PURPLE} 4${NC} ${PURPLE}Переустановить Nextcloud AIO${NC}                             ${WHITE}│"
+        fi
+        echo -e "│                                                                      ${WHITE}│"
     fi
     
-    echo -e "│                                                                      ${WHITE}│"
     echo -e "│  ${GRAY} 0${NC} ${GRAY}Выход${NC}                                                        ${WHITE}│"
     echo -e "└──────────────────────────────────────────────────────────────────────┘${NC}\n"
     echo -e "${CYAN}Выберите опцию:${NC} "
@@ -725,29 +739,41 @@ main_loop() {
         
         read -r choice
         
+        local install_status=$(get_install_status)
+        local container_status=$(get_container_status)
+        
         case $choice in
             1)
-                local install_status=$(get_install_status)
                 if [ "$install_status" = "not_started" ] || [ "$install_status" = "failed" ]; then
                     start_installation
                 elif [ "$install_status" = "running" ]; then
                     connect_to_installation
-                else
+                elif [ "$install_status" = "completed" ] && [ "$container_status" = "running" ]; then
                     show_container_management
+                elif [ "$install_status" = "completed" ] && [ "$container_status" != "running" ]; then
+                    # Запуск остановленного контейнера
+                    echo -e "${BLUE}${GEAR} Запуск контейнера Nextcloud AIO...${NC}"
+                    if docker start "$CONTAINER_NAME" &>/dev/null; then
+                        echo -e "${GREEN}${CHECKMARK} Контейнер успешно запущен${NC}"
+                        sleep 2
+                    else
+                        echo -e "${RED}${CROSS} Ошибка запуска контейнера${NC}"
+                        sleep 2
+                    fi
                 fi
                 ;;
             2)
-                local install_status=$(get_install_status)
                 if [ "$install_status" = "running" ]; then
                     show_install_logs
+                elif [ "$install_status" = "not_started" ] || [ "$install_status" = "failed" ]; then
+                    show_diagnostics
                 else
                     show_access_info
+                    echo -n "Нажмите Enter для продолжения..."
+                    read -r
                 fi
-                echo -n "Нажмите Enter для продолжения..."
-                read -r
                 ;;
             3)
-                local install_status=$(get_install_status)
                 if [ "$install_status" = "running" ]; then
                     restart_installation
                 else
@@ -755,7 +781,6 @@ main_loop() {
                 fi
                 ;;
             4)
-                local install_status=$(get_install_status)
                 if [ "$install_status" = "completed" ]; then
                     restart_installation
                 fi
