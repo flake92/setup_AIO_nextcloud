@@ -189,6 +189,24 @@ detect_os() {
         exit 1
     fi
     
+    # Устанавливаем пакетный менеджер для Linux систем
+    if [[ "$OSTYPE" != "darwin"* ]]; then
+        if command -v apt-get &> /dev/null; then
+            PACKAGE_MANAGER="apt"
+        elif command -v dnf &> /dev/null; then
+            PACKAGE_MANAGER="dnf"
+        elif command -v yum &> /dev/null; then
+            PACKAGE_MANAGER="yum"
+        elif command -v pacman &> /dev/null; then
+            PACKAGE_MANAGER="pacman"
+        elif command -v zypper &> /dev/null; then
+            PACKAGE_MANAGER="zypper"
+        else
+            echo -e "${RED}${CROSS} Неподдерживаемый пакетный менеджер${NC}"
+            exit 1
+        fi
+    fi
+    
     echo -e "${BLUE}${INFO} Обнаружена система: $OS_NAME${NC}"
     
     # Проверяем наличие Docker
