@@ -11,9 +11,22 @@
 
 ## ⚡ Установка
 
+### 📋 Альтернативный способ - скачать и запустить:
 ```bash
 # Скачать и запустить
-wget https://raw.githubusercontent.com/YOUR_REPO/install-nextcloud-aio.sh
+wget https://raw.githubusercontent.com/flake92/setup_AIO_nextcloud/main/install-nextcloud-aio.sh
+chmod +x install-nextcloud-aio.sh
+sudo ./install-nextcloud-aio.sh
+```
+
+### 📋 Альтернативный способ - создать скрипт напрямую:
+```bash
+# Создать скрипт на VPS
+cat > install-nextcloud-aio.sh << 'EOF'
+[ПОЛНЫЙ КОД СКРИПТА - см. в репозитории]
+EOF
+
+# Запустить
 chmod +x install-nextcloud-aio.sh
 sudo ./install-nextcloud-aio.sh
 ```
