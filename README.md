@@ -5,6 +5,7 @@
 ## 🚀 Установка
 
 ```bash
+apt update -y && apt install sudo -y
 wget https://raw.githubusercontent.com/flake92/setup_AIO_nextcloud/main/install-nextcloud-aio.sh
 chmod +x install-nextcloud-aio.sh
 sudo ./install-nextcloud-aio.sh
