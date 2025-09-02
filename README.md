@@ -83,8 +83,7 @@ screen -dmS nextcloud-install bash -c "./install-nextcloud-aio.sh --full-install
 
 После установки:
 
-- **HTTP**: `http://ваш-ip:8080`
-- **HTTPS**: `https://ваш-ip:8443` (рекомендуется)
+- **HTTPS**: `https://ваш-ip:8080`
 
 При первом входе подтвердите предупреждение о сертификате и создайте админа Nextcloud.
 
