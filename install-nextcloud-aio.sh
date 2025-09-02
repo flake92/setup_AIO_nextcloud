@@ -267,8 +267,7 @@ check_installation_status() {
     if docker ps | grep -q nextcloud-aio-mastercontainer; then
         echo -e "   ✅ Мастер-контейнер запущен"
         SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || echo "localhost")
-        echo -e "   🌐 Доступ: ${GREEN}https://$SERVER_IP:8443${NC}"
-        echo -e "   🌐 Доступ: ${GREEN}http://$SERVER_IP:8080${NC}"
+        echo -e "   🌐 Доступ: ${GREEN}https://$SERVER_IP:8080${NC}"
     elif docker ps -a | grep -q nextcloud-aio-mastercontainer; then
         echo -e "   ⚠️  Мастер-контейнер остановлен"
         echo -e "   💡 Запустить: ${GREEN}docker start nextcloud-aio-mastercontainer${NC}"
